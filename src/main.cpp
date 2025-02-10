@@ -266,15 +266,20 @@ void red_pos() {
     doinkerArm.set_value(false); //doinker up
     doinkerClawOpen.set_value(true);
     doinkerClawDown.set_value(false); //release mogo
-    chassis.turnToHeading(180, 1000); //180 turn
-    chassis.moveToPoint(1.5, 40, 1000, {.forwards = false, .maxSpeed=127},true); //move to mogo 1
+    chassis.turnToHeading(180, 1000); //180 turn   //TESTED-WORKING TO HERE
+    chassis.moveToPoint(4, 40, 300, {.forwards = false, .maxSpeed=127},true); //move to mogo 1
     clamp.set_value(true);  //clamp mogo 1
 
+    runIntake(1); //run intake
+    chassis.moveToPoint(10,38,400, {.forwards = true, .maxSpeed=90}, true); // grab red ring
+    clamp.set_value(false); //release clamp
+    chassis.moveToPoint(10,32,400, {.forwards = true, .maxSpeed=127}, true); //go away from mogo 1
+    chassis.moveToPoint(-10,25,400,{.forwards = true, .maxSpeed=127}, true); //go to mogo 2
+    clamp.set_value(true); //grab mogo 2
+
+    
 
 
-
-
-    // chassis.turnToHeading(24, 10000);
 };
 
 void autonomous()

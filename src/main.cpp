@@ -135,8 +135,8 @@ void runIntakeSolo(int8_t direction, int8_t which) {
     }
 }
 
-#define intakeDown intakeLift.set_value(true);
-#define intakeUp intakeLift.set_value(false);
+#define intakeDown intakeLift.set_value(false);
+#define intakeUp intakeLift.set_value(true);
 
 auto dir_ccw = lemlib::AngularDirection::CCW_COUNTERCLOCKWISE;
 auto dir_cw = lemlib::AngularDirection::CW_CLOCKWISE;
@@ -256,26 +256,38 @@ void auton_pid_tuning_lateral() {
 void red_pos() {
     doinkerClawOpen.set_value(true); //open doinker claw at start
     chassis.setPose(0,0,0); //reset odometry
-    chassis.moveToPoint(1.5,34,920,{.forwards = true, .maxSpeed=127},true); //move to goal rush
     doinkerArm.set_value(true); //doinker down
-    pros::delay(800);
+    frontIntake.move_velocity(200); //run intake stage 1
+    chassis.moveToPoint(0,34,920,{.forwards = true, .maxSpeed=127},true); //move to goal rush 
+    pros::delay(1000);
     doinkerClawOpen.set_value(false);
     doinkerClawDown.set_value(true); //grab mogo
-    chassis.moveToPoint(5,18,500,{.forwards = false, .maxSpeed=127},true); //move back with mogo
-    pros::delay(600);
-    doinkerArm.set_value(false); //doinker up
+    chassis.moveToPoint(0,11.9,1000,{.forwards = false, .maxSpeed=107},true); //pull goal back
+    pros::delay(850);
     doinkerClawOpen.set_value(true);
     doinkerClawDown.set_value(false); //release mogo
-    chassis.turnToHeading(180, 1000); //180 turn   //TESTED-WORKING TO HERE
-    chassis.moveToPoint(4, 40, 300, {.forwards = false, .maxSpeed=127},true); //move to mogo 1
-    clamp.set_value(true);  //clamp mogo 1
+    pros::delay(250);
+    doinkerArm.set_value(false); //doinker up
+    chassis.turnToHeading(-156, 1000); //180 turn   //TESTED-WORKING TO HERE
+    chassis.moveToPoint(12.5,36.42,1000,{.forwards = false, .maxSpeed=85},true); //align to mogo 1
+    // chassis.turnToHeading(-156, 1000); //180 turn  alligning to mogo for test
+    pros::delay(850);
+    clamp.set_value(true); //clamp
+    frontIntake.move_velocity(0);
+    runIntake(1);
+    chassis.turnToHeading(384, 1000); //180 turn  alligning to mogo for test
+    pros::delay(700);
+    clamp.set_value(false); //clamp
 
-    runIntake(1); //run intake
-    chassis.moveToPoint(10,38,400, {.forwards = true, .maxSpeed=90}, true); // grab red ring
-    clamp.set_value(false); //release clamp
-    chassis.moveToPoint(10,32,400, {.forwards = true, .maxSpeed=127}, true); //go away from mogo 1
-    chassis.moveToPoint(-10,25,400,{.forwards = true, .maxSpeed=127}, true); //go to mogo 2
-    clamp.set_value(true); //grab mogo 2
+
+
+
+    // runIntake(1); //run intake
+    // chassis.moveToPoint(10,38,400, {.forwards = true, .maxSpeed=90}, true); // grab red ring
+    // clamp.set_value(false); //release clamp
+    // chassis.moveToPoint(10,32,400, {.forwards = true, .maxSpeed=127}, true); //go away from mogo 1
+    // chassis.moveToPoint(-10,25,400,{.forwards = true, .maxSpeed=127}, true); //go to mogo 2
+    // clamp.set_value(true); //grab mogo 2
 
     
 

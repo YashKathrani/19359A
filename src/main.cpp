@@ -254,22 +254,21 @@ void auton_pid_tuning_lateral() {
 }
 
 void red_pos() {
-    doinkerClawOpen.set_value(true);
-    chassis.setPose(0,0,0);
-    chassis.moveToPoint(1.5,34,920,{.forwards = true, .maxSpeed=127},true);
-    doinkerArm.set_value(true);
+    doinkerClawOpen.set_value(true); //open doinker claw at start
+    chassis.setPose(0,0,0); //reset odometry
+    chassis.moveToPoint(1.5,34,920,{.forwards = true, .maxSpeed=127},true); //move to goal rush
+    doinkerArm.set_value(true); //doinker down
     pros::delay(800);
     doinkerClawOpen.set_value(false);
-    doinkerClawDown.set_value(true); //goalrush
-    chassis.moveToPoint(5,18,500,{.forwards = false, .maxSpeed=127},true);
+    doinkerClawDown.set_value(true); //grab mogo
+    chassis.moveToPoint(5,18,500,{.forwards = false, .maxSpeed=127},true); //move back with mogo
     pros::delay(600);
-    doinkerArm.set_value(false);
+    doinkerArm.set_value(false); //doinker up
     doinkerClawOpen.set_value(true);
-    doinkerClawDown.set_value(false);
-    chassis.turnToHeading(180, 1000);
-    chassis.moveToPoint(1.5, 40, 1000, {.forwards = false, .maxSpeed=127},true);
-    pros::delay(600);  
-    clamp.set_value(true);  //clamp open
+    doinkerClawDown.set_value(false); //release mogo
+    chassis.turnToHeading(180, 1000); //180 turn
+    chassis.moveToPoint(1.5, 40, 1000, {.forwards = false, .maxSpeed=127},true); //move to mogo 1
+    clamp.set_value(true);  //clamp mogo 1
 
 
 

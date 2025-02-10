@@ -1,11 +1,11 @@
 {
     "py/object": "pros.conductor.project.Project",
     "py/state": {
-        "project_name": "test",
+        "project_name": "testing",
         "target": "v5",
         "templates": {
             "LemLib": {
-                "location": "C:\\Users\\yashm\\AppData\\Roaming\\PROS\\templates\\LemLib@0.5.5",
+                "location": "C:\\Users\\yashk\\AppData\\Roaming\\PROS\\templates\\LemLib@0.5.5",
                 "metadata": {
                     "origin": "LemLib"
                 },
@@ -48,7 +48,7 @@
                 "version": "0.5.5"
             },
             "kernel": {
-                "location": "C:\\Users\\yashm\\AppData\\Roaming\\PROS\\templates\\kernel@4.1.1",
+                "location": "C:\\Users\\yashk\\AppData\\Roaming\\PROS\\templates\\kernel@4.1.1",
                 "metadata": {
                     "cold_addr": "58720256",
                     "cold_output": "bin/cold.package.bin",
@@ -121,9 +121,9 @@
                 "version": "4.1.1"
             },
             "liblvgl": {
-                "location": "C:\\Users\\yashm\\AppData\\Roaming\\PROS\\templates\\liblvgl@8.3.8",
+                "location": "C:\\Users\\yashk\\AppData\\Roaming\\PROS\\templates\\liblvgl@8.3.8",
                 "metadata": {
-                    "origin": "pros-mainline"
+                    "origin": "kernel-beta-mainline"
                 },
                 "name": "liblvgl",
                 "py/object": "pros.conductor.templates.local_template.LocalTemplate",

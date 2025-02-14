@@ -1,6 +1,8 @@
 #include "lemlib/api.hpp"  //test pos
 #include "lemlib/asset.hpp"
+#include "lemlib/chassis/chassis.hpp"
 #include "pros/misc.h"
+#include "pros/rtos.hpp"
 #include "main.h"
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
@@ -225,9 +227,13 @@ void initialize() {
             pros::lcd::print(6, "Rotation Sensor Vertical: %i", vertical_encoder.get_position());
 
             pros::delay(1);
+
+
         }
     });
 }
+
+
 
 void disabled() {};
 
@@ -237,6 +243,8 @@ void auton_init()
 {
     // initiatlize ladybrown
     intakeDown;
+    wallStakeLoop();
+
 };
 
 void auton_pid_tuning_angular() {
@@ -253,41 +261,51 @@ void auton_pid_tuning_lateral() {
     chassis.moveToPoint(0, 24, 10000);
 }
 
+
+
+
+
 void red_pos() {
     doinkerClawOpen.set_value(true); //open doinker claw at start
     chassis.setPose(0,0,0); //reset odometry
     doinkerArm.set_value(true); //doinker down
     frontIntake.move_velocity(200); //run intake stage 1
-    chassis.moveToPoint(0,34,920,{.forwards = true, .maxSpeed=127},true); //move to goal rush 
+    chassis.moveToPoint(0,34,1220,{.forwards = true, .maxSpeed=127},true); //move to goal rush 
     pros::delay(1000);
     doinkerClawOpen.set_value(false);
     doinkerClawDown.set_value(true); //grab mogo
-    chassis.moveToPoint(0,11.9,1000,{.forwards = false, .maxSpeed=107},true); //pull goal back
-    pros::delay(850);
+    chassis.moveToPoint(0,10,900,{.forwards = false, .maxSpeed=107},true); //pull goal back
+    pros::delay(1000);
     doinkerClawOpen.set_value(true);
     doinkerClawDown.set_value(false); //release mogo
-    pros::delay(250);
+    chassis.turnToHeading(-156, 1200, {.direction = AngularDirection::CW_CLOCKWISE, .maxSpeed=80},true); //180 turn 
+    pros::delay(100);
     doinkerArm.set_value(false); //doinker up
-    chassis.turnToHeading(-156, 1000); //180 turn   //TESTED-WORKING TO HERE
-    chassis.moveToPoint(12.5,36.42,1000,{.forwards = false, .maxSpeed=85},true); //align to mogo 1
-    // chassis.turnToHeading(-156, 1000); //180 turn  alligning to mogo for test
+    chassis.moveToPoint(5.7,31.5,500,{.forwards = false, .maxSpeed=107},true); //go to goal
     pros::delay(850);
     clamp.set_value(true); //clamp
     frontIntake.move_velocity(0);
+    runIntake(-1);
+    pros::delay(30);
     runIntake(1);
-    chassis.turnToHeading(384, 1000); //180 turn  alligning to mogo for test
-    pros::delay(700);
+    chassis.turnToHeading(60, 800, {.direction = AngularDirection::CCW_COUNTERCLOCKWISE}); 
+    pros::delay(1100);
     clamp.set_value(false); //clamp
+    chassis.moveToPoint(9.5,31,1500,{.forwards = true, .maxSpeed=107},false); 
+    chassis.turnToHeading(-320.38, 700); 
+    wallStakeMotor.move_velocity(200);
+    pros::delay(1000);
+    chassis.turnToHeading(-270, 1200); 
+    chassis.moveToPoint(-23,30.97,1500,{.forwards = false, .maxSpeed=107},false); 
+    wallStakeMotor.move_velocity(-200);
+    pros::delay(1000);
+    wallStakeMotor.move_velocity(0);
 
 
 
+    
 
-    // runIntake(1); //run intake
-    // chassis.moveToPoint(10,38,400, {.forwards = true, .maxSpeed=90}, true); // grab red ring
-    // clamp.set_value(false); //release clamp
-    // chassis.moveToPoint(10,32,400, {.forwards = true, .maxSpeed=127}, true); //go away from mogo 1
-    // chassis.moveToPoint(-10,25,400,{.forwards = true, .maxSpeed=127}, true); //go to mogo 2
-    // clamp.set_value(true); //grab mogo 2
+    // chassis.moveToPose(14.47, 35.72, 22.8, 4000, {.forwards = true, .maxSpeed = 127}, true);
 
     
 
@@ -296,7 +314,7 @@ void red_pos() {
 
 void autonomous()
 {
-    
+    wallStakeLoop();
     auton_init();
 
     // auton_pid_tuning_angular();

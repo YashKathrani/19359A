@@ -139,7 +139,7 @@ void runIntake(float direction)
 #define INTAKE_FRONT 1
 #define INTAKE_CONVEYOR 2
 
-void runIntakeSolo(int8_t direction, int8_t which)
+void runIntakeSolo(float direction, int8_t which)
 {
     if (which == INTAKE_FRONT)
     {
@@ -303,7 +303,6 @@ void auton_pid_tuning_lateral()
     chassis.moveToPoint(0, 24, 10000);
 }
 
-<<<<<<< HEAD
 void red_pos()
 {
     runIntakeSolo(1,INTAKE_FRONT);
@@ -318,56 +317,37 @@ void red_pos()
     doinker_open;
     chassis.moveToPoint(1, 7, 500, {.forwards = false, .maxSpeed = 127}, true); // move back after mogo
     pros::delay(400);
-
+    
     doinker_up;
     
     chassis.turnToHeading(202.1, 400,{.direction = dir_cw});                                            // 180 turn   //TESTED-WORKING TO HERE
-    chassis.moveToPoint(14, 29, 900, {.forwards = false, .maxSpeed = 127}, true); // move to mogo 1
-    pros::delay(900);
+    chassis.moveToPoint(14, 32.5, 950, {.forwards = false, .maxSpeed = 100}, true); // move to mogo 1
+    pros::delay(1050);
     clamp_on;
     
+    // runIntakeSolo(-1,INTAKE_CONVEYOR);
+    // pros::delay(50);
+    ladybrownSetWait(5, 500);
     runIntake(1);
+    
     pros::delay(900);
     chassis.turnToHeading(31, 800,{.direction = dir_ccw});  
     pros::delay(500);
+    runIntake(0);
     clamp_off;
-    chassis.turnToHeading(45.3, 500,{.direction = dir_cw});  
-    chassis.moveToPoint(14, 34, 900, {.forwards = false, .maxSpeed = 127}, true); // move to mogo 1
-    ladybrownSetWait(3, 2000);
-    // chassis.moveToPoint(10, 38, 400, {.forwards = true, .maxSpeed = 90}, true);   // grab red ring
-    // clamp.set_value(false);                                                       // release clamp
-    // chassis.moveToPoint(10, 32, 400, {.forwards = true, .maxSpeed = 127}, true);  // go away from mogo 1
-    // chassis.moveToPoint(-10, 25, 400, {.forwards = true, .maxSpeed = 127}, true); // go to mogo 2
-    // clamp_on;
-=======
-void red_pos() {
-    doinkerClawOpen.set_value(true); //open doinker claw at start
-    chassis.setPose(0,0,0); //reset odometry
-    chassis.moveToPoint(1.5,34,920,{.forwards = true, .maxSpeed=127},true); //move to goal rush
-    doinkerArm.set_value(true); //doinker down
-    pros::delay(800);
-    doinkerClawOpen.set_value(false);
-    doinkerClawDown.set_value(true); //grab mogo
-    chassis.moveToPoint(5,18,500,{.forwards = false, .maxSpeed=127},true); //move back with mogo
-    pros::delay(600);
-    doinkerArm.set_value(false); //doinker up
-    doinkerClawOpen.set_value(true);
-    doinkerClawDown.set_value(false); //release mogo
-    chassis.turnToHeading(180, 1000); //180 turn   //TESTED-WORKING TO HERE
-    chassis.moveToPoint(4, 40, 300, {.forwards = false, .maxSpeed=127},true); //move to mogo 1
-    clamp.set_value(true);  //clamp mogo 1
-
-    runIntake(1); //run intake
-    chassis.moveToPoint(10,38,400, {.forwards = true, .maxSpeed=90}, true); // grab red ring
-    clamp.set_value(false); //release clamp
-    chassis.moveToPoint(10,32,400, {.forwards = true, .maxSpeed=127}, true); //go away from mogo 1
-    chassis.moveToPoint(-10,25,400,{.forwards = true, .maxSpeed=127}, true); //go to mogo 2
-    clamp.set_value(true); //grab mogo 2
-
+    chassis.turnToHeading(35, 300,{.direction = dir_cw});  
+    chassis.moveToPose(21, 40,80, 1000, {.forwards = true, .maxSpeed = 100}, false);//this is wall stake mech
+    wallStakeMotor.move_velocity(200);
+    pros::delay(700);
+    wallStakeMotor.move_velocity(-150);
+    chassis.moveToPoint(-28, 37.3, 1600, {.forwards = false, .maxSpeed = 127}, false); 
+    wallStakeMotor.move_velocity(0);
+    pros::delay(200);
+    clamp_on;
+    chassis.moveToPoint(-2, -13, 2500, {.forwards = true, .maxSpeed = 127}, false); 
+    runIntake(1);
+    wallStakeMotor.move_velocity(0);
     
-
-
->>>>>>> 902b08d363fbf1ca857997142087d3fd5abef4e7
 };
 
 // part stuff for testing
@@ -558,6 +538,9 @@ void opcontrol()
 
         if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT))
         {
+            runIntakeSolo(-0.1,INTAKE_CONVEYOR);
+            pros::delay(300);
+            runIntakeSolo(0,INTAKE_CONVEYOR);
             wallStakeCurrentStage = wallStakeCurrentStage == 1 ? 2 : 1;
         }
 
@@ -572,7 +555,11 @@ void opcontrol()
         }
 
         if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_UP))
+        
         {
+            runIntakeSolo(-0.1,INTAKE_CONVEYOR);
+            pros::delay(300);
+            runIntakeSolo(0,INTAKE_CONVEYOR);
             wallStakeCurrentStage = wallStakeCurrentStage == 3 ? 5 : 3;
         }
 

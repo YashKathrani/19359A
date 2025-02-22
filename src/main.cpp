@@ -332,34 +332,47 @@ void blue_niggative()
     chassis.moveToPoint(-3.85, 10.73, 200, {.forwards = true, .maxSpeed = 127}, true); // move to ring 1
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
     intakeLift.set_value(false);
-    chassis.moveToPose(-11.5, -5, 0, 2000, {.forwards = false, .maxSpeed = 127}, true); //go to alliance stake
+    chassis.moveToPose(-10.5, -5, 0, 2000, {.forwards = false, .maxSpeed = 127}, true); //go to alliance stake
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
     pros::delay(1000);
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    runIntake(0.9); //run intake
+    runIntake(1); //run intake convyer
     pros::delay(1000); //delay before leaving alliance stake
-    chassis.moveToPoint(1.36,19.37, 1500, {.forwards = true, .maxSpeed = 127}, true); // move near stake 1
+    chassis.moveToPoint(1.36, 19.37, 1300, {.forwards = true, .maxSpeed = 127}, true); // move near stake 1
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    chassis.turnToHeading(213.6,500);                                            //turn toward mogo
+    chassis.turnToHeading(203.6, 500);                                            //turn toward mogo
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
     chassis.moveToPoint(11,35, 1800, {.forwards = false, .maxSpeed = 127}, true); // move to stake 1 grabbing position
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    pros::delay(300); //delay before grabbing stake 1
+    pros::delay(450); //delay before grabbing stake 1
     clamp_on;
 
     runIntake(0);
-    conveyorLift.move_velocity(200);
+    conveyorLift.move_velocity(200*0.75);
     pros::delay(100);                 //ANTIJAM
     frontIntake.move_velocity(200);
-    conveyorLift.move_velocity(-200);
+    conveyorLift.move_velocity(-200*0.75);
 
     chassis.turnToHeading(90,500);                                            //turn toward ring 2
-    chassis.moveToPoint(30,40, 700, {.forwards = true, .maxSpeed = 127}, true);  //move to ring 2
+    chassis.moveToPoint(30,38, 700, {.forwards = true, .maxSpeed = 127,.minSpeed=100}, true);  //move to ring 2
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
     chassis.turnToHeading(0,500);                                            //turn toward ring 3
-    chassis.moveToPoint(30,50, 700, {.forwards = true, .maxSpeed = 127}, true);  //grab ring 3
-    chassis.moveToPoint(30,38, 700, {.forwards = false, .maxSpeed = 127}, true);  //move back from ring 3
-    chassis.moveToPose(41, 52, 0, 2000, {.forwards = false, .maxSpeed = 127}, true); //grab ring 4
-
+    chassis.moveToPoint(32,54, 700, {.forwards = true, .maxSpeed = 127}, true);  //grab ring 3
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    chassis.moveToPoint(30,38, 700, {.forwards = false, .maxSpeed = 127,.minSpeed=100}, true);  //move back from ring 3
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    chassis.moveToPose(41, 57, 30, 1000, {.forwards = true, .maxSpeed = 127}, true); //grab ring 4
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    pros::delay(1000);
+    frontIntake.move_velocity(0);
+    conveyorLift.move_velocity(-200*0.75);
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    chassis.moveToPose(53, 58, 46, 2000, {.forwards = true, .maxSpeed = 127}, true); //move to wallstake
+    pros::delay(2000);
+    ladybrownSetWait(4, 500);  //do this after each chassis movement to keep it up
+    chassis.moveToPoint(3, 52, 1200, {.forwards = false, .maxSpeed = 127,.minSpeed=127}, true);  //bar touch
+    pros::delay(200);
+    ladybrownSetWait(3, 500);  //rape position
 
 
 
@@ -620,7 +633,7 @@ void autonomous()
 
 void drive_init()
 {
-    clamp.set_value(false);
+    clamp.set_value(true);
     doinkerArm.set_value(false);
     doinkerClawOpen.set_value(true);
     intakeLift.set_value(false);

@@ -46,6 +46,7 @@ int wallStakeTargetPosition;
 
 bool clampStatus = false;
 bool intakeLiftStatus = false;
+bool clawLiftStatus = false;
 bool doinkerArmStatus = false;
 bool doinkerClawStatus = false;
 
@@ -374,34 +375,60 @@ void blue_niggative()
     pros::delay(200);
     ladybrownSetWait(3, 500);  //rape position
 
+}
 
+void red_niggative()
+{
+    intakeLift.set_value(true);
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    runIntakeSolo(1,INTAKE_FRONT);
+    chassis.setPose(0, 0, 0);  
+    chassis.swingToHeading(66,DriveSide::LEFT, 800, {.maxSpeed = 127}, true); // switched to reflect
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    chassis.moveToPoint(3.85, 10.73, 200, {.forwards = true, .maxSpeed = 127}, true); // move to ring 1  reflected
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    intakeLift.set_value(false);
+    chassis.moveToPose(10.5, -5, 0, 2000, {.forwards = false, .maxSpeed = 127}, true); //go to alliance stake reflected
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    pros::delay(1000);
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    runIntake(1); //run intake convyer
+    pros::delay(1000); //delay before leaving alliance stake
+    chassis.moveToPoint(-1.36, 19.37, 1300, {.forwards = true, .maxSpeed = 127}, true); // move near stake 1 reflected
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    chassis.turnToHeading(-203.6, 500);                                            //turn toward mogo switched to reflect
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    chassis.moveToPoint(-11,35, 1800, {.forwards = false, .maxSpeed = 127}, true); // move to stake 1 grabbing position reflected
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    pros::delay(450); //delay before grabbing stake 1
+    clamp_on;
 
+    runIntake(0);
+    conveyorLift.move_velocity(200*0.75);
+    pros::delay(100);                 //ANTIJAM
+    frontIntake.move_velocity(200);
+    conveyorLift.move_velocity(-200*0.75);
 
-
-    // ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    // chassis.turnToHeading(44.96,500);                                            // 180 turn  
-    // ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    // chassis.moveToPoint(26.6,55, 2000, {.forwards = true, .maxSpeed = 127}, true); // grab ring 1
-    // ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    // chassis.moveToPose(43.77,55, 90, 2000, {.forwards = true, .maxSpeed = 127}, true); //grab ring 2
-    // ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    // pros::delay(1400);
-    // frontIntake.move_velocity(0);
-    // conveyorLift.move_velocity(0);
-    // ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    // chassis.moveToPose(53.85,57.3, 48, 2000, {.forwards = true, .maxSpeed = 127}, true); //align for wall stake
-    // pros::delay(1300); //wait before scoring on wallstake
-    // ladybrownSetWait(3, 500);  //do this after each chassis movement to keep it up
-    // chassis.moveToPoint(48.3,50.5, 2000, {.forwards = true, .maxSpeed = 127}, true); // back up after wall stake
-    // ladybrownSetWait(0, 500);  //do this after each chassis movement to keep it up
-    // chassis.turnToHeading(180,500);                                            //turn toward ring 3
-
-
-
-
-    
-
-    
+    chassis.turnToHeading(-90,500);  //switched                                          //turn toward ring 2
+    chassis.moveToPoint(-30,38, 700, {.forwards = true, .maxSpeed = 127,.minSpeed=100}, true);  //move to ring 2 - switched
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    chassis.turnToHeading(0,500);                                            //turn toward ring 3
+    chassis.moveToPoint(-32,54, 700, {.forwards = true, .maxSpeed = 127}, true);  //grab ring 3
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    chassis.moveToPoint(-30,38, 700, {.forwards = false, .maxSpeed = 127,.minSpeed=100}, true);  //move back from ring 3 - switched
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    chassis.moveToPose(-41, 57, -30, 1000, {.forwards = true, .maxSpeed = 127}, true); //grab ring 4 - switched angle as well
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    pros::delay(1000);
+    frontIntake.move_velocity(0);
+    conveyorLift.move_velocity(-200*0.75);
+    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
+    chassis.moveToPose(-53, 58, -46, 2000, {.forwards = true, .maxSpeed = 127}, true); //move to wallstake - switched angle as well
+    pros::delay(2000);
+    ladybrownSetWait(-4, 500);  //do this after each chassis movement to keep it up
+    chassis.moveToPoint(-3, 52, 1200, {.forwards = false, .maxSpeed = 127,.minSpeed=127}, true);  //bar touch - switched
+    pros::delay(200);
+    ladybrownSetWait(3, 500);  //rape position
 
 }
 
@@ -626,7 +653,8 @@ void autonomous()
     // auton_curve_test();
     // auton_ladybrown_move_test();
     // red_pos();
-    blue_niggative();
+    red_niggative();
+    // blue_niggative();
     // auton_skills();
 
 };
@@ -663,6 +691,18 @@ void opcontrol()
             intakeLiftStatus = !intakeLiftStatus;
             intakeLift.set_value(intakeLiftStatus);
         }
+        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
+        {
+            clawLiftStatus = !clawLiftStatus;
+            if(clawLiftStatus){
+                doinkerClawClose.set_value(false);;
+                doinkerClawOpen.set_value(true);
+            }
+            else{
+                doinkerClawOpen.set_value(false);
+                doinkerClawClose.set_value(true);;
+            }
+        }//changing
         if (!controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
         {
             intakeColorSortState = INTAKE_RUNNING;

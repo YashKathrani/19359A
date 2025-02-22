@@ -383,12 +383,12 @@ void red_niggative()
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
     runIntakeSolo(1,INTAKE_FRONT);
     chassis.setPose(0, 0, 0);  
-    chassis.swingToHeading(66,DriveSide::LEFT, 800, {.maxSpeed = 127}, true); // switched to reflect
+    chassis.swingToHeading(66,DriveSide::RIGHT, 800, {.maxSpeed = 127}, true); // switched to reflect
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
     chassis.moveToPoint(3.85, 10.73, 200, {.forwards = true, .maxSpeed = 127}, true); // move to ring 1  reflected
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
     intakeLift.set_value(false);
-    chassis.moveToPose(10.5, -5, 0, 2000, {.forwards = false, .maxSpeed = 127}, true); //go to alliance stake reflected
+    chassis.moveToPose(13, -4.5, 0, 2000, {.forwards = false, .maxSpeed = 127}, true); //go to alliance stake reflected
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
     pros::delay(1000);
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
@@ -413,13 +413,13 @@ void red_niggative()
     chassis.moveToPoint(-30,38, 700, {.forwards = true, .maxSpeed = 127,.minSpeed=100}, true);  //move to ring 2 - switched
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
     chassis.turnToHeading(0,500);                                            //turn toward ring 3
-    chassis.moveToPoint(-32,54, 700, {.forwards = true, .maxSpeed = 127}, true);  //grab ring 3
+    chassis.moveToPoint(-34,59, 700, {.forwards = true, .maxSpeed = 127}, true);  //grab ring 3
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    chassis.moveToPoint(-30,38, 700, {.forwards = false, .maxSpeed = 127,.minSpeed=100}, true);  //move back from ring 3 - switched
+    chassis.moveToPoint(-30,43, 700, {.forwards = false, .maxSpeed = 127,.minSpeed=100}, true);  //move back from ring 3 - switched
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    chassis.moveToPose(-41, 57, -30, 1000, {.forwards = true, .maxSpeed = 127}, true); //grab ring 4 - switched angle as well
+    chassis.moveToPose(-39, 63, -30, 1000, {.forwards = true, .maxSpeed = 127}, true); //grab ring 4 - switched angle as well
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    pros::delay(1000);
+    pros::delay(1200);
     frontIntake.move_velocity(0);
     conveyorLift.move_velocity(-200*0.75);
     ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
@@ -653,14 +653,15 @@ void autonomous()
     // auton_curve_test();
     // auton_ladybrown_move_test();
     // red_pos();
-    // red_niggative();
-    blue_niggative();
+    red_niggative();
+    // blue_niggative();
     // auton_skills();
 
 };
 
 void drive_init()
 {
+    runIntake(0);
     clamp.set_value(true);
     doinkerArm.set_value(false);
     doinkerClawOpen.set_value(true);

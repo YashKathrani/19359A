@@ -1,13 +1,12 @@
 #include "lemlib/api.hpp"
 #include "pros/misc.h"
-#include "pros/rtos.hpp"
 #include "main.h"
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 pros::adi::DigitalOut clamp{'A'};
 pros::adi::DigitalOut intakeLift{'D'};
 pros::adi::DigitalOut doinkerArm{'B'};
-pros::adi::DigitalOut doinkerClawClose{'E'};   
+pros::adi::DigitalOut doinkerClawClose{'E'};
 pros::adi::DigitalOut doinkerClawOpen{'C'};
 pros::Motor wallStakeMotor(6);
 pros::Motor frontIntake(9);
@@ -24,24 +23,10 @@ pros::Distance intakeDistanceSensor(12);
 pros::Distance autonResetDistanceSensor(17);
 
 int wallStakeCurrentStage = 0; // Start at first stage
-int wallStakePositions[] = {
-    233,    // rest
-    213,    // ready 1
-    200,    // ready 2
-    85,     // score main
-    24,     // forward
-    160     // score pre
-};
-#define LB_REST         0
-#define LB_READY_1      1
-#define LB_READY_2      2
-#define LB_SCORE_MAIN   3
-#define LB_FORWARD      4
-#define LB_SCORE_PRE    5
-
+int wallStakePositions[] = {250, 213, 200, 85, 24, 170};
 const int wallStakePosCount = sizeof(wallStakePositions) / sizeof(wallStakePositions[0]);
-double wallStakePCoeff = 2.6;
-double wallStakeDCoeff = 100;
+double wallStakePCoeff = 2.6; //if it undershot increase
+double wallStakeDCoeff = 100; //if it occolates chnage
 int wallStakeTargetPosition;
 
 bool clampStatus = false;
@@ -49,9 +34,6 @@ bool intakeLiftStatus = false;
 bool clawLiftStatus = false;
 bool doinkerArmStatus = false;
 bool doinkerClawStatus = false;
-
-int driveIntakeReverseStartTime = -1000;
-int driveIntakeReverseTimeout = 300;
 
 auto drive_gearset = pros::v5::MotorGears::ratio_6_to_1;
 
@@ -322,77 +304,6 @@ void auton_pid_tuning_lateral()
     chassis.moveToPoint(0, 24, 10000);
 }
 
-void blue_niggative()
-{
-    intakeLift.set_value(true);
-    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    runIntakeSolo(1,INTAKE_FRONT);
-    chassis.setPose(0, 0, 0);  
-    chassis.swingToHeading(-66,DriveSide::LEFT, 800, {.maxSpeed = 127}, true); // 
-    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    chassis.moveToPoint(-3.85, 10.73, 200, {.forwards = true, .maxSpeed = 127}, true); // move to ring 1
-    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    intakeLift.set_value(false);
-    chassis.moveToPose(-11.5, -5, 0, 2000, {.forwards = false, .maxSpeed = 127}, true); //go to alliance stake
-    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    pros::delay(1000);
-    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    runIntake(0.9); //run intake
-    pros::delay(1000); //delay before leaving alliance stake
-    chassis.moveToPoint(1.36,19.37, 1500, {.forwards = true, .maxSpeed = 127}, true); // move near stake 1
-    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    chassis.turnToHeading(213.6,500);                                            //turn toward mogo
-    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    chassis.moveToPoint(11,35, 1800, {.forwards = false, .maxSpeed = 127}, true); // move to stake 1 grabbing position
-    ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    pros::delay(300); //delay before grabbing stake 1
-    clamp_on;
-
-    runIntake(0);
-    conveyorLift.move_velocity(200);
-    pros::delay(100);                 //ANTIJAM
-    frontIntake.move_velocity(200);
-    conveyorLift.move_velocity(-200);
-
-    chassis.turnToHeading(90,500);                                            //turn toward ring 2
-    chassis.moveToPoint(30,40, 700, {.forwards = true, .maxSpeed = 127}, true);  //move to ring 2
-    chassis.turnToHeading(0,500);                                            //turn toward ring 3
-    chassis.moveToPoint(30,50, 700, {.forwards = true, .maxSpeed = 127}, true);  //grab ring 3
-    chassis.moveToPoint(30,38, 700, {.forwards = false, .maxSpeed = 127}, true);  //move back from ring 3
-    chassis.moveToPose(41, 52, 0, 2000, {.forwards = false, .maxSpeed = 127}, true); //grab ring 4
-
-
-
-
-
-
-    // ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    // chassis.turnToHeading(44.96,500);                                            // 180 turn  
-    // ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    // chassis.moveToPoint(26.6,55, 2000, {.forwards = true, .maxSpeed = 127}, true); // grab ring 1
-    // ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    // chassis.moveToPose(43.77,55, 90, 2000, {.forwards = true, .maxSpeed = 127}, true); //grab ring 2
-    // ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    // pros::delay(1400);
-    // frontIntake.move_velocity(0);
-    // conveyorLift.move_velocity(0);
-    // ladybrownSetWait(5, 500);  //do this after each chassis movement to keep it up
-    // chassis.moveToPose(53.85,57.3, 48, 2000, {.forwards = true, .maxSpeed = 127}, true); //align for wall stake
-    // pros::delay(1300); //wait before scoring on wallstake
-    // ladybrownSetWait(3, 500);  //do this after each chassis movement to keep it up
-    // chassis.moveToPoint(48.3,50.5, 2000, {.forwards = true, .maxSpeed = 127}, true); // back up after wall stake
-    // ladybrownSetWait(0, 500);  //do this after each chassis movement to keep it up
-    // chassis.turnToHeading(180,500);                                            //turn toward ring 3
-
-
-
-
-    
-
-    
-
-}
-
 void red_pos()
 {
     runIntakeSolo(1,INTAKE_FRONT);
@@ -464,22 +375,23 @@ void auton_skills()
         runIntake(1);
         pros::delay(400);
         runIntake(0);
-        // chassis.moveToPoint(-56, 0, 500, {.minSpeed=100});
-        // chassis.moveToPose(-48, -16, 0, 1200, {.forwards = false, .lead = 0, .minSpeed=80});
-        chassis.swingToHeading(30, lemlib::DriveSide::LEFT, 500, {.minSpeed=110, .earlyExitRange=30});
-        chassis.moveToPose(-50, -16, -5, 800, {.forwards = false, .lead = 0.2, .minSpeed=100, .earlyExitRange=2});
-        chassis.moveToPoint(-48, -25, 700, {.forwards = false}, false);
+        chassis.moveToPoint(-56, 0, 900);
+        chassis.moveToPose(-48, -16, 0, 1400, {.forwards = false, .lead = 0});
+        chassis.moveToPoint(-48, -21, 800, {.forwards = false}, false);
         clamp_on;
-        pros::delay(100);
         runIntake(1);
-        chassis.moveToPose(-24, -24, 135, 1600, {.lead = 0, .minSpeed=70}); // score ring at -24, -24
-        chassis.moveToPose(30, -48, 90, 2000, {.lead = 0.6});   // to ring
-        pros::delay(400);
-        ladybrownSetWait(LB_READY_1, 1600);
+        chassis.moveToPose(-24, -24, 135, 2000, {.lead = 0}); // score ring at -24, -24
+        chassis.moveToPose(0, -42, 110, 2000, {.lead = 0.2}); // to ring
+        chassis.moveToPose(30, -48, 90, 2000, {.lead = 0.4});   // to ring
+        pros::delay(200);
+        ladybrownSetWait(2, 2000);
         chassis.moveToPose(24, -48, 90, 700, {.forwards=false});   // to ring
+        chassis.moveToPoint(24, -48, 2000);   // to ring
+        // pros::delay(300);                                    // tweak timing so ring at 24, -48 is in lb
+        // turn to 90 heading and use a distance sensor to reset position
+        chassis.turnToHeading(90, 800, {}, false);
+        ladybrownSetWait(2, 800);
         resetAutonPositionWithDistance(false);
-        runIntake(0.5);
-        ladybrownSetWait(LB_READY_1, 500);
     }
     if (part2)
     {
@@ -487,56 +399,24 @@ void auton_skills()
         { // 1 is scored, 1 is being put into ladybrown grip
             chassis.setPose(24, -48, 90);
             clamp_on;
-            ladybrownSetWait(LB_READY_1, 2000);
+            ladybrownSetWait(2, 2000);
             chassis.turnToHeading(97, 1000);
             runIntake(1);
         }
-        chassis.moveToPose(0, -42, 180, 1300, {.forwards = false, .lead = 0}); // back to middle
-
-        ladybrownSetWait(LB_READY_1, 1300);
-
-        // for (size_t i = 0; i < 2; i++)
-
-        // {
-
-        //     runIntake(-0.4);
-
-        //     ladybrownSetWait(LB_READY_1, 200);
-
-        //     runIntake(0.7);
-
-        //     ladybrownSetWait(LB_READY_1, 200);
-
-        // }
-
-        chassis.waitUntilDone();
+        chassis.moveToPose(0, -42, 110, 2000, {.forwards = false, .lead = 0}); // back to middle
+        ladybrownSetWait(2, 2000);
+        chassis.turnToHeading(180, 1000);
         runIntake(-0.1);
         pros::delay(200);
-        ladybrownSetWait(LB_READY_1, 200);
-
-        chassis.moveToPose(0, -62, 180, 900, {.lead=0}); // move to score ladybrown position
-
-        pros::delay(300);
-
-        ladybrownSetWait(LB_SCORE_MAIN, 100);
-
-        runIntake(0.75);                                          // while intaking the ring at 0, -60
-
-        ladybrownSetWait(LB_SCORE_MAIN, 500);
-
-        // chassis.turnToHeading(187, 400, {.minSpeed=70});
-
-        // chassis.turnToHeading(173, 400, {.minSpeed=70});
-
-        // chassis.moveToPoint(0, -64, 400, {.minSpeed=80}, false);
-
-        // chassis.turnToHeading(180, 300, {});
-
-        ladybrownSetWait(LB_FORWARD, 300);
-
-        chassis.moveToPose(0, -48, 180, 800, {.forwards = false, .lead = 0}); // back up for bottom left rings
-
-        ladybrownSetWait(LB_REST, 800);
+        ladybrownSetWait(2, 500);
+        runIntake(0);
+        chassis.moveToPoint(0, -66, 1000, {.maxSpeed = 30}, false); // move to score ladybrown position
+        ladybrownSetWait(5, 500);
+        runIntake(1);                                          // while intaking the ring at 0, -60
+        ladybrownSetWait(3, 1500);
+        ladybrownSetWait(4, 1000);
+        chassis.moveToPose(0, -48, 180, 2000, {.forwards = false, .lead = 0}); // back up for bottom left rings
+        ladybrownSetWait(0, 1000);
     }
     if (part3)
     {
@@ -614,7 +494,6 @@ void autonomous()
     // auton_curve_test();
     // auton_ladybrown_move_test();
     red_pos();
-    // blue_niggative();
     // auton_skills();
 
 };
@@ -657,9 +536,8 @@ void opcontrol()
         }
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
         {
-             // intakeColorSortLoop(); // uncomment if enabling color sort
-
-             runIntake(1); // comment if enabling color sort
+            // intakeColorSortLoop();
+            runIntake(1);
         }
         else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
         {
@@ -668,13 +546,7 @@ void opcontrol()
         else
         {
             runIntake(0);
-        }
-
-        if (driveIntakeReverseStartTime + driveIntakeReverseTimeout > pros::millis()) {
-
-            runIntakeSolo(-0.1,INTAKE_CONVEYOR);
-
-        }
+        };
         if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
         {
             clawLiftStatus = !clawLiftStatus;
@@ -694,7 +566,6 @@ void opcontrol()
             pros::delay(300);
             runIntakeSolo(0,INTAKE_CONVEYOR);
             wallStakeCurrentStage = wallStakeCurrentStage == 1 ? 2 : 1;
-            driveIntakeReverseStartTime = pros::millis();
         }
 
         if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN))

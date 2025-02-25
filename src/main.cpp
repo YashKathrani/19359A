@@ -1,13 +1,12 @@
 #include "lemlib/api.hpp"
 #include "pros/misc.h"
-#include "pros/rtos.hpp"
 #include "main.h"
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 pros::adi::DigitalOut clamp{'A'};
 pros::adi::DigitalOut intakeLift{'D'};
 pros::adi::DigitalOut doinkerArm{'B'};
-pros::adi::DigitalOut doinkerClawClose{'E'};   
+pros::adi::DigitalOut doinkerClawClose{'E'};
 pros::adi::DigitalOut doinkerClawOpen{'C'};
 pros::Motor wallStakeMotor(6);
 pros::Motor frontIntake(9);
@@ -25,28 +24,29 @@ pros::Distance autonResetDistanceSensor(17);
 
 int wallStakeCurrentStage = 0; // Start at first stage
 int wallStakePositions[] = {
-    233,    // rest
-    213,    // ready 1
-    200,    // ready 2
-    85,     // score main
-    24,     // forward
-    160     // score pre
+    265,    // rest
+    233,    // ready 1
+    124,     // score main
+    46,     // forward
+    180     // score pre
 };
 #define LB_REST         0
 #define LB_READY_1      1
-#define LB_READY_2      2
-#define LB_SCORE_MAIN   3
-#define LB_FORWARD      4
-#define LB_SCORE_PRE    5
+#define LB_SCORE_MAIN   2
+#define LB_FORWARD      3
+#define LB_SCORE_PRE    4
 
 const int wallStakePosCount = sizeof(wallStakePositions) / sizeof(wallStakePositions[0]);
-double wallStakePCoeff = 2.6;
-double wallStakeDCoeff = 100;
+double wallStakePCoeff = 1.5;
+double wallStakeICoeff = 0;
+double wallStakeDCoeff = 5;
 int wallStakeTargetPosition;
+int wallStakeTestHold = -1;
+
+lemlib::PID wallStakePID(wallStakePCoeff, wallStakeICoeff, wallStakeDCoeff, 0, true);
 
 bool clampStatus = false;
 bool intakeLiftStatus = false;
-bool clawLiftStatus = false;
 bool doinkerArmStatus = false;
 bool doinkerClawStatus = false;
 
@@ -79,9 +79,11 @@ lemlib::OdomSensors sensors(&vertical_tracking_wheel,   // vertical tracking whe
                             &inertialSensor             // inertial sensor
 );
 
-lemlib::ControllerSettings lateral_controller(6,    // proportional gain (kP)
+#pragma region PID chassis
+
+lemlib::ControllerSettings lateral_controller(10,    // proportional gain (kP)
                                               0,    // integral gain (kI)
-                                              28.5, // derivative gain (kD)
+                                              30, // derivative gain (kD)
                                               3,    // anti windup
                                               1,    // small error range, in inches
                                               100,  // small error range timeout, in milliseconds
@@ -93,7 +95,7 @@ lemlib::ControllerSettings lateral_controller(6,    // proportional gain (kP)
 // angular PID controller
 lemlib::ControllerSettings angular_controller(2.77,             // proportional gain (kP)
                                               0,                // integral gain (kI)
-                                              17.5,             // derivative gain (kD)
+                                              20,             // derivative gain (kD)
                                               2.71166666666667, // anti windup
                                               1,                // small error range, in inches
                                               100,              // small error range timeout, in milliseconds
@@ -101,6 +103,8 @@ lemlib::ControllerSettings angular_controller(2.77,             // proportional 
                                               500,              // large error range timeout, in milliseconds
                                               0                 // maximum acceleration (slew)
 );
+
+#pragma endregion PID chassis
 
 lemlib::Chassis chassis(drivetrain,         // drivetrain settings
                         lateral_controller, // lateral PID settings
@@ -114,22 +118,28 @@ double previousPosition = 0;
 void wallStakeLoop(float speedMultiplier = 1)
 {
     wallStakeTargetPosition = wallStakePositions[wallStakeCurrentStage];
+    // if (wallStakeTestHold != -1) {
+    //     wallStakeTargetPosition = wallStakeTestHold;
+    // }
     // Get current position from the rotational sensor
     float angle_in_centidegrees = wallStakeRotation.get_angle();
     float angle_in_degrees = angle_in_centidegrees / 100.0;
     double current_position = angle_in_degrees;
     if (current_position > 340)
         current_position -= 360;
-    double derivative;
-    if (previousPosition != 0)
-    {
-        derivative = current_position - previousPosition;
-    }
+    // double derivative;
+    // if (previousPosition != 0)
+    // {
+    //     derivative = current_position - previousPosition;
+    // }
     // PID variables
     double error = current_position - wallStakeTargetPosition;
-    double velocity = wallStakePCoeff * error + wallStakeDCoeff * derivative;
+
+    double velocity = wallStakePID.update(error);
+
+    // double velocity = wallStakePCoeff * error + wallStakeDCoeff * derivative;
     // Apply motor power
-    wallStakeMotor.move(velocity * speedMultiplier);
+    wallStakeMotor.move(velocity * 1);
 
     err = error;
 };
@@ -205,10 +215,32 @@ void resetAutonPositionWithDistance(bool x, float offsetFromCenter=5.875) {
     }
 }
 
+void autonRobotShake(
+    float angleAmplitude = 3,
+    int timeout = 200,
+    size_t phaseCount = 1,
+    int ladybrownCycle = -1,
+    bool reset = true,
+    int resetTimeout = 200,
+    lemlib::TurnToHeadingParams params = {},
+    lemlib::TurnToHeadingParams resetParams = {},
+    bool resetAsync = true
+) {
+    float baseAngle = chassis.getPose().theta;
+    for (size_t i = 0; i < phaseCount; i++)
+    {
+        chassis.turnToHeading(baseAngle + angleAmplitude, timeout, params);
+        if (ladybrownCycle != -1) ladybrownSetWait(ladybrownCycle, timeout);
+        chassis.turnToHeading(baseAngle - angleAmplitude, timeout, params);
+        if (ladybrownCycle != -1) ladybrownSetWait(ladybrownCycle, timeout);
+    }
+    chassis.turnToHeading(baseAngle, resetTimeout, params, resetAsync);
+}
+
 #pragma endregion quick_type
 
 bool opp_is_blue = true; //!<-- CHANGE ON UPLOAD
-int oppHueRange[2];
+int oppHueRange[2] = {190, 220}; // Example range for blue hue
 
 const int8_t INTAKE_RUNNING = 0, INTAKE_FLICK_WAIT_DISTANCE = 1, INTAKE_FLICK_AFTER_DISTANCE = 2, INTAKE_FLICK_BACKWARDS = 3;
 int8_t intakeColorSortState;
@@ -216,7 +248,8 @@ uint32_t intakeLastChangeTime;
 
 bool intakeOppDetected()
 {
-    return (intakeOpticalSensor.get_hue() > oppHueRange[0]) && (intakeOpticalSensor.get_hue() < oppHueRange[1]);
+    double hue = intakeOpticalSensor.get_hue();
+    return (hue > oppHueRange[0]) && (hue < oppHueRange[1]);
 }
 
 double distprt = 0;
@@ -227,62 +260,58 @@ void intakeColorSortLoop()
     double brightness = intakeOpticalSensor.get_brightness();
     double distance = intakeDistanceSensor.get();
 
-    pros::screen::print(pros::text_format_e_t::E_TEXT_LARGE, 0, "dist %f", distprt);
+    pros::screen::print(pros::text_format_e_t::E_TEXT_LARGE, 0, "Distance: %f, Hue: %f, Brightness: %f", distance, hue, brightness);
+    controller.set_text(0, 0, "Dist: " + std::to_string(distance) + " Hue: " + std::to_string(hue));
 
     switch (intakeColorSortState)
     {
     case INTAKE_RUNNING:
-        runIntake(0.8);
-        if (intakeOppDetected())
+        runIntake(0.8); // Run intake at default speed
+        if (intakeOppDetected() && distance < 200)
         {
             intakeColorSortState = INTAKE_FLICK_WAIT_DISTANCE;
             intakeLastChangeTime = pros::millis();
         }
         break;
+
     case INTAKE_FLICK_WAIT_DISTANCE:
-        runIntake(1);
-        distprt = distance;
-        if (distance < 130)
-        { //* <-- distance at which the ring turns around the top
-            intakeColorSortState = INTAKE_FLICK_AFTER_DISTANCE;
-            intakeLastChangeTime = pros::millis();
-        }
-        break;
-    case INTAKE_FLICK_AFTER_DISTANCE:
-        runIntake(1);
-        if (pros::millis() - intakeLastChangeTime >= 50)
-        { //* <-- delay (ms) for waiting to start moving backwards
+        runIntake(1); // Run intake at full speed
+        if (distance < 164)
+        {
             intakeColorSortState = INTAKE_FLICK_BACKWARDS;
             intakeLastChangeTime = pros::millis();
         }
         break;
+
     case INTAKE_FLICK_BACKWARDS:
-        runIntake(-0.5);
-        if (pros::millis() - intakeLastChangeTime >= 300)
-        { //* <-- amount of time (ms) it moves backwards for
-            intakeColorSortState = INTAKE_RUNNING;
+        runIntake(-0.9); // Reverse intake to flick ring
+        if (pros::millis() - intakeLastChangeTime >= 100)
+        {
+            intakeColorSortState = INTAKE_RUNNING; // Return to running state
             intakeLastChangeTime = pros::millis();
+            controller.set_text(0, 0, "Ring sorted");
         }
         break;
+
     default:
-        runIntake(1);
+        runIntake(1); // Failsafe: keep intake running
+        controller.set_text(0, 0, "Idle");
         break;
     }
 }
-
 //-------------
 
 void initialize()
 {
     if (opp_is_blue)
     {
-        oppHueRange[0] = 200;
-        oppHueRange[1] = 230;
+        oppHueRange[0] = 190;
+        oppHueRange[1] = 220;
     }
     else
     {
-        oppHueRange[0] = 355;
-        oppHueRange[1] = 40;
+        oppHueRange[0] = 0;
+        oppHueRange[1] = 20;
     }
     pros::lcd::initialize(); // initialize brain screen
     chassis.calibrate();     // calibrate sensors
@@ -295,12 +324,10 @@ void initialize()
             pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
             pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
             pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading;
-            pros::lcd::print(4, "Hor Enc: %i", horizontal_encoder.get_position());
-            pros::lcd::print(5, "Ver Enc: %i", vertical_encoder.get_position());
-            // pros::lcd::print(3, "ldbrwn err %f", err); // wall stake error
+            pros::lcd::print(3, "ldbrwn err %f", err); // wall stake error
             // pros::lcd::print(4, "ring %s h %f", intakeOppDetected()?"opp":"---", intakeOpticalSensor.get_hue());
-            // pros::lcd::print(5, "Rotation Sensor Horizontal: %i", horizontal_encoder.get_position());
-            // pros::lcd::print(6, "Rotation Sensor Vertical: %i", vertical_encoder.get_position());
+            // pros::lcd::print(4, "Hor Enc: %i", horizontal_encoder.get_position());
+            // pros::lcd::print(5, "Ver Enc: %i", vertical_encoder.get_position());
 
             pros::delay(20);
         } });
@@ -309,6 +336,8 @@ void initialize()
 void disabled() {};
 
 void competition_initialize() {};
+
+#pragma region autonomous
 
 void auton_init()
 {
@@ -490,10 +519,18 @@ void red_pos()
     wallStakeMotor.move_velocity(200); //touch bar with ladybrown
 };
 
-// part stuff for testing
+#pragma region auton_skill_part_defines
+
+// positive side
 #define part1 true
 #define part2 true
 #define part3 true
+// negative side
+#define part4 false
+#define part5 false
+#define part6 false
+
+#pragma endregion auton_skill_part_defines
 
 void auton_skills()
 {
@@ -503,21 +540,22 @@ void auton_skills()
         runIntake(1);
         pros::delay(400);
         runIntake(0);
-        // chassis.moveToPoint(-56, 0, 500, {.minSpeed=100});
-        // chassis.moveToPose(-48, -16, 0, 1200, {.forwards = false, .lead = 0, .minSpeed=80});
         chassis.swingToHeading(30, lemlib::DriveSide::LEFT, 500, {.minSpeed=110, .earlyExitRange=30});
-        chassis.moveToPose(-50, -16, -5, 800, {.forwards = false, .lead = 0.2, .minSpeed=100, .earlyExitRange=2});
-        chassis.moveToPoint(-48, -25, 700, {.forwards = false}, false);
+        chassis.moveToPose(-50, -16, -5, 800, {.forwards = false, .lead = 0.2, .minSpeed=120, .earlyExitRange=2});
+        chassis.moveToPoint(-50, -24, 600, {.forwards = false}, false);
         clamp_on;
         pros::delay(100);
         runIntake(1);
-        chassis.moveToPose(-24, -24, 135, 1600, {.lead = 0, .minSpeed=70}); // score ring at -24, -24
-        chassis.moveToPose(30, -48, 90, 2000, {.lead = 0.6});   // to ring
-        pros::delay(400);
-        ladybrownSetWait(LB_READY_1, 1600);
-        chassis.moveToPose(24, -48, 90, 700, {.forwards=false});   // to ring
+        chassis.moveToPose(-24, -28, 135, 1100, {.lead = 0, .minSpeed=120, .earlyExitRange=2}); // score ring at -24, -24
+        chassis.moveToPose(30, -48, 90, 1500, {.lead = 0.6});   // to ring
+
+        chassis.turnToHeading(90, 400, {}, false);
         resetAutonPositionWithDistance(false);
-        runIntake(0.5);
+        chassis.moveToPose(24, -34, 0, 1000, {}, false);
+        resetAutonPositionWithDistance(true);
+
+        chassis.moveToPose(24, -24, 0, 1000, {.lead=0, .minSpeed=100});
+        pros::delay(500);
         ladybrownSetWait(LB_READY_1, 500);
     }
     if (part2)
@@ -530,51 +568,37 @@ void auton_skills()
             chassis.turnToHeading(97, 1000);
             runIntake(1);
         }
-        chassis.moveToPose(0, -42, 180, 1300, {.forwards = false, .lead = 0}); // back to middle
 
-        ladybrownSetWait(LB_READY_1, 1300);
+        runIntake(0.5);
 
-        // for (size_t i = 0; i < 2; i++)
+        // back to middle
+        chassis.moveToPose(0, -42, 180, 2000, {.forwards = false, .lead = 0.3});
+        ladybrownSetWait(LB_READY_1, 2000);
 
-        // {
-
-        //     runIntake(-0.4);
-
-        //     ladybrownSetWait(LB_READY_1, 200);
-
-        //     runIntake(0.7);
-
-        //     ladybrownSetWait(LB_READY_1, 200);
-
-        // }
-
-        chassis.waitUntilDone();
+        chassis.moveToPose(0, -64, 180, 1200, {.lead=0.4}); // move to score ladybrown position
         runIntake(-0.1);
-        pros::delay(200);
-        ladybrownSetWait(LB_READY_1, 200);
+        pros::delay(600);
+        runIntake(0.25);
 
-        chassis.moveToPose(0, -62, 180, 900, {.lead=0}); // move to score ladybrown position
+        // score first
+        chassis.moveToPoint(0, -65, 300);
+        ladybrownSetWait(LB_FORWARD, 600);
 
-        pros::delay(300);
+        // ready next
+        // runIntake(0.25);
+        ladybrownSetWait(LB_READY_1, 700);
+        runIntake(0.75);
+        ladybrownSetWait(LB_READY_1, 200); // <-- time for ring to get into lb
+        runIntake(-0.1);
+        // pros::delay(600);
+        // runIntake(0);
 
-        ladybrownSetWait(LB_SCORE_MAIN, 100);
+        // score next
+        chassis.moveToPoint(0, -65, 300);
+        ladybrownSetWait(LB_FORWARD, 600);
 
-        runIntake(0.75);                                          // while intaking the ring at 0, -60
-
-        ladybrownSetWait(LB_SCORE_MAIN, 500);
-
-        // chassis.turnToHeading(187, 400, {.minSpeed=70});
-
-        // chassis.turnToHeading(173, 400, {.minSpeed=70});
-
-        // chassis.moveToPoint(0, -64, 400, {.minSpeed=80}, false);
-
-        // chassis.turnToHeading(180, 300, {});
-
-        ladybrownSetWait(LB_FORWARD, 300);
-
-        chassis.moveToPose(0, -48, 180, 800, {.forwards = false, .lead = 0}); // back up for bottom left rings
-
+        ladybrownSetWait(LB_REST, 200);
+        chassis.moveToPose(0, -48, 180, 800, {.forwards=false, .lead = 0}); // align with rings
         ladybrownSetWait(LB_REST, 800);
     }
     if (part3)
@@ -583,23 +607,131 @@ void auton_skills()
         {
             chassis.setPose(0, -48, 180);
             clamp_on;
-            runIntake(-0.5);
+            runIntake(1);
         }
-        chassis.turnToHeading(-90, 800);
-        chassis.moveToPose(-48, -48, -90, 4000, {.lead=0, .maxSpeed=90});
-        runIntake(1);
-        chassis.moveToPose(-60, -48, -90, 3000, {.lead=0});
-        chassis.moveToPose(-48, -60, 135, 1000, {.lead=0, .maxSpeed=90});
-        chassis.turnToPoint(-48, -60, 1000);
-        chassis.moveToPoint(-48, -60, 1000);
-        chassis.moveToPoint(-54, -54, 1000, {.forwards = false});
-        chassis.turnToPoint(0, 0, 1000);
-        chassis.moveToPose(-60, -60, 45, 1000, {.forwards = false}, false);
+        runIntake(0.75);
+        chassis.turnToHeading(-90, 600);
+        // chassis.moveToPose(-24, -48, -90, 900, {.lead=0, .minSpeed=90, .earlyExitRange=1}, false);
+        // pros::delay(200);
+        // chassis.moveToPose(-48, -48, -90, 1000, {.lead=0, .minSpeed=90, .earlyExitRange=1}, false);
+        // pros::delay(700);
+        chassis.moveToPose(-60, -48, -90, 2400, {.lead=0, .minSpeed=70}, false);
+        // pros::delay(300);
+
+        // chassis.turnToHeading(135, 600, {.minSpeed=70});
+        chassis.moveToPose(-44, -58, 135, 500, {.lead=0, .minSpeed=90, .earlyExitRange=1});
+        chassis.swingToHeading(90, lemlib::DriveSide::LEFT, 400, {.minSpeed=90});
+        chassis.moveToPose(-42, -64, 90, 400, {}, false);
+
+        resetAutonPositionWithDistance(false);
+
+        chassis.moveToPose(-57, -64, 90, 800, {.forwards=false, .lead=0, .minSpeed=120}, false);
         clamp_off;
-        pros::delay(200);
         runIntake(-0.5);
-        chassis.moveToPose(-48, -48, 45, 1000, {}, false);
+        chassis.moveToPose(-48, -40, 180, 1000, {.lead=0, .minSpeed=120});
+        chassis.turnToHeading(180, 600, {}, false);
+        resetAutonPositionWithDistance(true);
+    }
+
+    if (part4) { // part 1 mirror across x axis
+        if (!part3) {
+            chassis.setPose(-48, 0, 180);
+        }
+        chassis.moveToPose(-50, 16, 185, 800, {.forwards = false, .lead = 0.2, .minSpeed=100, .earlyExitRange=2});
+        chassis.moveToPoint(-50, 27, 600, {.forwards = false}, false);
+        clamp_on;
+        pros::delay(100);
+        runIntake(1);
+        chassis.moveToPose(-24, 24, 45, 1500, {.lead = 0, .minSpeed=70}); // score ring at -24, -24
+        chassis.moveToPose(30, 48, 90, 1500, {.lead = 0.6});   // to ring
+        chassis.moveToPose(24, 48, 90, 900);
+
+        chassis.turnToHeading(180, 600, {}, false);
+
+        chassis.moveToPose(24, 24, 180, 1000, {.lead=0});
+        pros::delay(500);
+        ladybrownSetWait(LB_READY_1, 500);
+
+        chassis.moveToPose(24, 42, -90, 1000, {.lead=0}, false);
+        resetAutonPositionWithDistance(false);
+    }
+    if (part5) // part 2 mirror across x axis
+    {
+        if (!part4)
+        { // 1 is scored, 1 is being put into ladybrown grip
+            chassis.setPose(24, 48, 90);
+            clamp_on;
+            ladybrownSetWait(LB_READY_1, 2000);
+            chassis.turnToHeading(83, 1000);
+            runIntake(1);
+        }
+        runIntake(0.5);
+
+        // back to middle
+        chassis.moveToPose(0, 42, 0, 2000, {.lead = 0});
+        ladybrownSetWait(LB_READY_1, 2000);
+        chassis.turnToHeading(0, 700);
+        ladybrownSetWait(LB_READY_1, 700);
+
+        chassis.moveToPose(0, 64, 0, 1200, {.lead=0.4}); // move to score ladybrown position
+        runIntake(-0.1);
+        pros::delay(600);
         runIntake(0);
+
+        // score first
+        chassis.moveToPoint(0, 65, 300);
+        ladybrownSetWait(LB_SCORE_MAIN, 500);
+        autonRobotShake(15, 200, 1, LB_FORWARD);
+        ladybrownSetWait(LB_FORWARD, 200);
+
+        // ready next
+        runIntake(0.25);
+        ladybrownSetWait(LB_READY_1, 700);
+        runIntake(0.75);
+        ladybrownSetWait(LB_READY_1, 1200); // <-- time for ring to get into lb
+        runIntake(-0.1);
+        pros::delay(600);
+        runIntake(0);
+
+        // score next
+        chassis.moveToPoint(0, 65, 300);
+        ladybrownSetWait(LB_SCORE_MAIN, 500);
+        autonRobotShake(15, 200, 1, LB_FORWARD);
+        ladybrownSetWait(LB_FORWARD, 200);
+
+        ladybrownSetWait(LB_REST, 200);
+        chassis.moveToPose(0, 48, 0, 800, {.forwards=false, .lead = 0}); // align with rings
+        ladybrownSetWait(LB_REST, 800);
+    }
+    if (part6) { // part 3 mirror across x axis
+        if (!part5)
+        {
+            chassis.setPose(0, 48, 0);
+            clamp_on;
+            runIntake(1);
+        }
+        runIntake(0.75);
+        chassis.turnToHeading(270, 600);
+        chassis.moveToPose(-24, 48, 270, 900, {.lead=0, .minSpeed=90, .earlyExitRange=1}, false);
+        chassis.turnToHeading(270, 400, {}, false);
+        resetAutonPositionWithDistance(false);
+        chassis.moveToPose(-48, 48, 270, 1000, {.lead=0, .minSpeed=90, .earlyExitRange=1}, false);
+        pros::delay(700);
+        chassis.moveToPose(-60, 48, 270, 900, {.lead=0}, false);
+        pros::delay(300);
+
+        chassis.turnToHeading(0, 700, {}, false);
+
+        chassis.turnToHeading(45, 600, {.minSpeed=70});
+        chassis.moveToPose(-44, 60, 45, 800, {.lead=0, .maxSpeed=90});
+        chassis.swingToHeading(90, lemlib::DriveSide::LEFT, 500);
+        chassis.moveToPose(-32, 64, 90, 500, {}, false);
+
+        chassis.moveToPose(-57, 64, 90, 800, {.forwards=false, .lead=0, .minSpeed=80}, false);
+        clamp_off;
+        runIntake(-0.5);
+        chassis.moveToPose(-48, 24, 180, 1400, {.lead=0});
+        chassis.turnToHeading(0, 1400, {}, false);
     }
 }
 
@@ -653,16 +785,14 @@ void autonomous()
     // auton_curve_test();
     // auton_ladybrown_move_test();
     // red_pos();
-    red_niggative();
-    // blue_niggative();
-    // auton_skills();
-
+    auton_skills();
 };
+
+#pragma endregion autonomous
 
 void drive_init()
 {
-    runIntake(0);
-    clamp.set_value(true);
+    clamp.set_value(false);
     doinkerArm.set_value(false);
     doinkerClawOpen.set_value(true);
     intakeLift.set_value(false);
@@ -687,74 +817,67 @@ void opcontrol()
             doinkerArm.set_value(doinkerArmStatus);
         }
 
+        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
+        {
+            doinkerClawStatus = !doinkerClawStatus;
+            if(doinkerClawStatus){
+                doinkerClawClose.set_value(false);
+                doinkerClawOpen.set_value(true);
+            }
+            else {
+                doinkerClawOpen.set_value(false);
+                doinkerClawClose.set_value(true);
+            }
+        }
+
         if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y))
         {
             intakeLiftStatus = !intakeLiftStatus;
             intakeLift.set_value(intakeLiftStatus);
         }
-        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
-        {
-            clawLiftStatus = !clawLiftStatus;
-            if(clawLiftStatus){
-                doinkerClawClose.set_value(false);;
-                doinkerClawOpen.set_value(true);
-            }
-            else{
-                doinkerClawOpen.set_value(false);
-                doinkerClawClose.set_value(true);;
-            }
-        }//changing
         if (!controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
         {
             intakeColorSortState = INTAKE_RUNNING;
         }
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
         {
-             // intakeColorSortLoop(); // uncomment if enabling color sort
-
-             runIntake(1); // comment if enabling color sort
+            intakeColorSortLoop(); // uncomment if enabling color sort
+            // runIntake(1); // comment if enabling color sort
         }
         else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
         {
             runIntake(-1);
+        }
+        else if (driveIntakeReverseStartTime + driveIntakeReverseTimeout > (int)pros::millis()) {
+            runIntakeSolo(-0.1,INTAKE_CONVEYOR);
         }
         else
         {
             runIntake(0);
         }
 
-        if (driveIntakeReverseStartTime + driveIntakeReverseTimeout > pros::millis()) {
-
-            runIntakeSolo(-0.1,INTAKE_CONVEYOR);
-
-        }
 
         if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT))
         {
-            runIntakeSolo(-0.1,INTAKE_CONVEYOR);
-            pros::delay(300);
-            runIntakeSolo(0,INTAKE_CONVEYOR);
-            wallStakeCurrentStage = wallStakeCurrentStage == 1 ? 2 : 1;
+            wallStakeCurrentStage = LB_READY_1;
             driveIntakeReverseStartTime = pros::millis();
         }
 
         if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN))
         {
-            wallStakeCurrentStage = 0; // Instantly reset to first stage
+            wallStakeCurrentStage = LB_REST; // Instantly reset to first stage
         }
 
         if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_LEFT))
         {
-            wallStakeCurrentStage = 4; // Instantly reset to first stage
+            wallStakeCurrentStage = LB_FORWARD; // Instantly reset to first stage
+            driveIntakeReverseStartTime = pros::millis();
         }
 
         if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_UP))
-        
         {
-            runIntakeSolo(-0.1,INTAKE_CONVEYOR);
-            pros::delay(300);
-            runIntakeSolo(0,INTAKE_CONVEYOR);
-            wallStakeCurrentStage = wallStakeCurrentStage == 3 ? 5 : 3;
+            wallStakeCurrentStage = wallStakeCurrentStage == LB_SCORE_MAIN ? LB_SCORE_PRE : LB_SCORE_MAIN;
+            driveIntakeReverseStartTime = pros::millis();
         }
 
         // get left y and right y positions
